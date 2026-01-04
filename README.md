@@ -1,88 +1,55 @@
-# remnawave_selfsteal_guide
-A comprehensive step-by-step guide on how to deploy a SelfSteal node on Remnawave, including the complete setup process for the Remnawave platform itself. This guide covers prerequisites, installation, configuration, and troubleshooting tips to ensure a smooth and secure deployment.
-
-This guide provides a step-by-step walkthrough for configuring the control panel and the node, each deployed on at least two separate VPS instances that meet the system requirements outlined here: https://remna.st/docs/install/requirements.
-
-We will begin with the basic setup of the Remnawave control panel.
-
-Step 0 — Updating and installing requirement tools
-
-# Updating entire system and installing curl
-`apt update && apt upgrade && apt install curl`
-
-Step 1 — Install Docker
-
-# Install Docker using the official convenience script
-`curl -fsSL https://get.docker.com | sh`
-
-Step 2 — Download required files
-
-# Create the project directory and enter it
-`mkdir -p /opt/remnawave && cd /opt/remnawave`
-
-# Fetch the Docker Compose file
-`curl -o docker-compose.yml https://raw.githubusercontent.com/remnawave/backend/refs/heads/main/docker-compose-prod.yml`
-
-# Fetch the sample environment file
-`curl -o .env https://raw.githubusercontent.com/remnawave/backend/refs/heads/main/.env.sample`
-
-Step 3 — Configure .env
-
-# Generate JWT secrets used for auth and API token signing
-`sed -i "s/^JWT_AUTH_SECRET=.*/JWT_AUTH_SECRET=$(openssl rand -hex 64)/" .env && sed -i "s/^JWT_API_TOKENS_SECRET=.*/JWT_API_TOKENS_SECRET=$(openssl rand -hex 64)/" .env`
-
-# Generate additional secrets for metrics and webhooks
-`sed -i "s/^METRICS_PASS=.*/METRICS_PASS=$(openssl rand -hex 64)/" .env && sed -i "s/^WEBHOOK_SECRET_HEADER=.*/WEBHOOK_SECRET_HEADER=$(openssl rand -hex 64)/" .env`
-
-# Rotate the Postgres password and keep DATABASE_URL in sync
-`pw=$(openssl rand -hex 24) && sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$pw/" .env && sed -i "s|^\(DATABASE_URL=\"postgresql://postgres:\)[^\@]*\(@.*\)|\1$pw\2|" .env`
-
-Set domains
-
-`nano .env`
-Search in .env this values
-
+remnawave_selfsteal_guide
+Полное пошаговое руководство по развертыванию ноды SelfSteal на Remnawave, включая полный процесс настройки самой платформы Remnawave. Это руководство охватывает предварительные требования, установку, конфигурацию и советы по устранению неисправностей для обеспечения плавного и безопасного развертывания.
+Это руководство предоставляет пошаговую инструкцию по настройке панели управления и ноды, каждая из которых развертывается как минимум на двух отдельных экземплярах VPS, соответствующих системным требованиям, описанным здесь: https://remna.st/docs/install/requirements.
+Мы начнем с базовой настройки панели управления Remnawave.
+Шаг 0 — Обновление и установка необходимых инструментов
+Обновление всей системы и установка curl
+apt update && apt upgrade && apt install curl
+Шаг 1 — Установка Docker
+Установка Docker с использованием официального удобного скрипта
+curl -fsSL https://get.docker.com | sh
+Шаг 2 — Загрузка необходимых файлов
+Создание директории проекта и переход в нее
+mkdir -p /opt/remnawave && cd /opt/remnawave
+Загрузка файла Docker Compose
+curl -o docker-compose.yml https://raw.githubusercontent.com/remnawave/backend/refs/heads/main/docker-compose-prod.yml
+Загрузка примера файла окружения
+curl -o .env https://raw.githubusercontent.com/remnawave/backend/refs/heads/main/.env.sample
+Шаг 3 — Конфигурация .env
+Генерация секретов JWT для аутентификации и подписи API-токенов
+sed -i "s/^JWT_AUTH_SECRET=.*/JWT_AUTH_SECRET=$(openssl rand -hex 64)/" .env && sed -i "s/^JWT_API_TOKENS_SECRET=.*/JWT_API_TOKENS_SECRET=$(openssl rand -hex 64)/" .env
+Генерация дополнительных секретов для метрик и вебхуков
+sed -i "s/^METRICS_PASS=.*/METRICS_PASS=$(openssl rand -hex 64)/" .env && sed -i "s/^WEBHOOK_SECRET_HEADER=.*/WEBHOOK_SECRET_HEADER=$(openssl rand -hex 64)/" .env
+Ротация пароля Postgres и синхронизация DATABASE_URL
+pw=$(openssl rand -hex 24) && sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$pw/" .env && sed -i "s|^\(DATABASE_URL=\"postgresql://postgres:\)[^\@]*\(@.*\)|\1$pw\2|" .env
+Настройка доменов
+nano .env
+Найдите в .env эти значения
 FRONT_END_DOMAIN="panel.yourdomain.com"
 SUB_PUBLIC_DOMAIN="sub.yourdomain.com"
-
-Change "panel.yourdomain.com" & "sub.yourdomain.com" on your domains
-
-Step 4 — Start the stack
-
-# Start containers and tail logs with timestamps
-`docker compose up -d && docker compose logs -f -t`
-
-Step 5 — Point domain names to your server via DNS provider or registar
-
-Step 6 — Caddy configuration
-
-# Create a file called Caddyfile in the /opt/remnawave/caddy directory.
-`mkdir -p /opt/remnawave/caddy && cd /opt/remnawave/caddy && nano Caddyfile`
-
-Paste the following configuration
-
-```
-https://REPLACE_WITH_YOUR_DOMAIN {
+Замените "panel.yourdomain.com" и "sub.yourdomain.com" на ваши домены
+Шаг 4 — Запуск стека
+Запуск контейнеров и просмотр логов с метками времени
+docker compose up -d && docker compose logs -f -t
+Шаг 5 — Направление доменных имен на ваш сервер через DNS-провайдера или регистратора
+Шаг 6 — Конфигурация Caddy
+Создайте файл Caddyfile в директории /opt/remnawave/caddy.
+mkdir -p /opt/remnawave/caddy && cd /opt/remnawave/caddy && nano Caddyfile
+Вставьте следующую конфигурацию
+texthttps://REPLACE_WITH_YOUR_DOMAIN {
         reverse_proxy * http://remnawave:3000
 }
 :443 {
     tls internal
     respond 204
 }
-
 https://SUBSCRIPTION_PAGE_DOMAIN {
         reverse_proxy * http://remnawave-subscription-page:3010
 }
-```
-
-Create docker-compose.yml
-
-`cd /opt/remnawave/caddy && nano docker-compose.yml`
-
-Paste the following configuration.
-
-```
-services:
+Создайте docker-compose.yml
+cd /opt/remnawave/caddy && nano docker-compose.yml
+Вставьте следующую конфигурацию.
+textservices:
     caddy:
         image: caddy:2.9
         container_name: 'caddy'
@@ -96,34 +63,23 @@ services:
         volumes:
             - ./Caddyfile:/etc/caddy/Caddyfile
             - caddy-ssl-data:/data
-
 networks:
     remnawave-network:
         name: remnawave-network
         driver: bridge
         external: true
-
 volumes:
     caddy-ssl-data:
         driver: local
         external: false
         name: caddy-ssl-data
-```
-
-# Start the container
-
-`docker compose up -d && docker compose logs -f -t`
-
-# Remnawave Subscription Page
-
-Creating docker-compose.yml file
-
-`mkdir -p /opt/remnawave/subscription && cd /opt/remnawave/subscription && nano docker-compose.yml`
-
-Paste docker-compose.yml file content
-
-```
-services:
+Запуск контейнера
+docker compose up -d && docker compose logs -f -t
+Страница подписки Remnawave
+Создание файла docker-compose.yml
+mkdir -p /opt/remnawave/subscription && cd /opt/remnawave/subscription && nano docker-compose.yml
+Вставьте содержимое файла docker-compose.yml
+textservices:
     remnawave-subscription-page:
         image: remnawave/subscription-page:latest
         container_name: remnawave-subscription-page
@@ -138,48 +94,29 @@ services:
             - '127.0.0.1:3010:3010'
         networks:
             - remnawave-network
-
 networks:
     remnawave-network:
         driver: bridge
         external: true
-```
-# Start the container
-
-`docker compose up -d && docker compose logs -f`
-
-Step 7 — Remnawave Node configuration
-
-Open your second vps server, for node you created before
-
-# Updating entire system and installing curl
-`apt update && apt upgrade && apt install curl`
-
-# Install Docker using the official convenience script
-`curl -fsSL https://get.docker.com | sh`
-
-Create project directory
-
-`mkdir -p /opt/remnanode && cd /opt/remnanode`
-
-Configure the .env file
-
-`nano .env`
-
-# .env file content
-
-```
-NODE_PORT=2222
+Запуск контейнера
+docker compose up -d && docker compose logs -f
+Шаг 7 — Конфигурация ноды Remnawave
+Откройте ваш второй VPS-сервер, предназначенный для ноды
+Обновление всей системы и установка curl
+apt update && apt upgrade && apt install curl
+Установка Docker с использованием официального удобного скрипта
+curl -fsSL https://get.docker.com | sh
+Создание директории проекта
+mkdir -p /opt/remnanode && cd /opt/remnanode
+Конфигурация файла .env
+nano .env
+Содержимое файла .env
+textNODE_PORT=2222
 SECRET_KEY=CERT_FROM_MAIN_PANEL
-```
-
-Create docker-compose.yml file
-
-`nano docker-compose.yml`
-# docker-compose.yml file content
-
-```
-services:
+Создание файла docker-compose.yml
+nano docker-compose.yml
+Содержимое файла docker-compose.yml
+textservices:
     remnanode:
         container_name: remnanode
         hostname: remnanode
@@ -188,17 +125,13 @@ services:
         network_mode: host
         env_file:
             - .env
-```
-# Pulling container
-`docker compose up -d && docker compose logs -f`
-
-Step 8 — Selfsteal (SNI) Setup
-# Create the working directory and open Caddyfile for editing
-`mkdir -p /opt/selfsteel && cd /opt/selfsteel && nano Caddyfile`
-
-Paste the following
-```
-{
+Запуск контейнера
+docker compose up -d && docker compose logs -f
+Шаг 8 — Настройка Selfsteal (SNI)
+Создание рабочей директории и редактирование Caddyfile
+mkdir -p /opt/selfsteel && cd /opt/selfsteel && nano Caddyfile
+Вставьте следующее
+text{
     https_port {$SELF_STEAL_PORT}
     default_bind 127.0.0.1
     servers {
@@ -211,55 +144,31 @@ Paste the following
     }
     auto_https disable_redirects
 }
-
 http://{$SELF_STEAL_DOMAIN} {
     bind 0.0.0.0
     redir https://{$SELF_STEAL_DOMAIN}{uri} permanent
 }
-
 https://{$SELF_STEAL_DOMAIN} {
     root * /var/www/html
     try_files {path} /index.html
     file_server
-
 }
-
-
 :{$SELF_STEAL_PORT} {
     tls internal
     respond 204
 }
-
 :80 {
     bind 0.0.0.0
     respond 204
 }
-```
-# Configure environment variables
-`nano .env`
-
-Paste (replace steel.domain.com with your placeholder domain):
-
-<table>
-  <tbody>
-    <tr>
-      <td><code>SELF_STEAL_DOMAIN=steel.domain.com</code></td>
-      <td>MUST match XRAY <code>realitySettings.serverNames</code></td>
-    </tr>
-    <tr>
-      <td><code>SELF_STEAL_PORT=9443</code></td>
-      <td>MUST match XRAY <code>realitySettings.dest</code></td>
-    </tr>
-  </tbody>
-</table>
-
-Create docker-compose.yml
-
-`nano docker-compose.yml`
-
-Paste:
-```
-services:
+Конфигурация переменных окружения
+nano .env
+Вставьте (замените steel.domain.com на ваш домен-заполнитель):
+SELF_STEAL_DOMAIN=steel.domain.comДОЛЖЕН совпадать с XRAY realitySettings.serverNamesSELF_STEAL_PORT=9443ДОЛЖЕН совпадать с XRAY realitySettings.dest
+Создание docker-compose.yml
+nano docker-compose.yml
+Вставьте:
+textservices:
   caddy:
     image: caddy:latest
     container_name: caddy-remnawave
@@ -273,30 +182,19 @@ services:
     env_file:
       - .env
     network_mode: "host"
-
 volumes:
   caddy_data_selfsteal:
   caddy_config_selfsteal:
-```
-
-Launch and verify
-
-`docker compose up -d && docker compose logs -f -t`
-
-Create the placeholder site
-
-```
-mkdir -p /opt/html
+Запуск и проверка
+docker compose up -d && docker compose logs -f -t
+Создание сайта-заполнителя
+textmkdir -p /opt/html
 printf '%s\n' '<!doctype html><meta charset="utf-8"><title>Selfsteal</title><h1>It works.</h1>' \
   > /opt/html/index.html
-```
-
-Step 9
-# Xray config (Reality) — update via Panel 
-Note: The Shadowsocks inbound is optional and may be safely removed in the future if not required.
-
-```
-{
+Шаг 9
+Конфигурация Xray (Reality) — обновление через панель
+Примечание: Inbound Shadowsocks является опциональным и может быть безопасно удален в будущем, если не требуется.
+text{
   "log": {
     "loglevel": "info"
   },
@@ -401,4 +299,3 @@ Note: The Shadowsocks inbound is optional and may be safely removed in the futur
     ]
   }
 }
-```
